@@ -1043,14 +1043,27 @@
         }
 
         function updateUI() {
-            document.getElementById('money').textContent = money;
-            document.getElementById('lives').textContent = lives;
-            document.getElementById('wave').textContent = currentWave;
-            document.getElementById('score').textContent = score;
-            
-            const countdownSeconds = Math.ceil(waveCountdown / 60);
-            document.getElementById('countdown').textContent = 
-                waveCountdown > 0 ? `Next: ${countdownSeconds}s` : 'Fighting!';
+            try {
+                const moneyEl = document.getElementById('money');
+                const livesEl = document.getElementById('lives');
+                const waveEl = document.getElementById('wave');
+                const scoreEl = document.getElementById('score');
+                const countdownEl = document.getElementById('countdown');
+                
+                if (moneyEl) moneyEl.textContent = money;
+                if (livesEl) livesEl.textContent = lives;
+                if (waveEl) waveEl.textContent = currentWave;
+                if (scoreEl) scoreEl.textContent = score;
+                
+                const countdownSeconds = Math.ceil(waveCountdown / 60);
+                if (countdownEl) {
+                    countdownEl.textContent = waveCountdown > 0 ? `Next: ${countdownSeconds}s` : 'Fighting!';
+                }
+                
+                console.log('UI更新:', { money, lives, currentWave, score });
+            } catch (error) {
+                console.error('UI更新エラー:', error);
+            }
         }
 
         function restartGame() {
