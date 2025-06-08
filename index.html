@@ -315,11 +315,22 @@
             ];
             
             console.log('経路初期化完了:', path.length, '点');
+            console.log('経路詳細:', path);
             
-            // テスト描画
+            // 即座にテスト描画
             ctx.fillStyle = '#ff0000';
             ctx.fillRect(10, 10, 50, 50);
-            console.log('テスト描画完了');
+            
+            // 経路を即座に描画してテスト
+            ctx.strokeStyle = '#00ff00';
+            ctx.lineWidth = 20;
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            ctx.stroke();
+            console.log('テスト経路描画完了');
         }
 
         function setupEventListeners() {
@@ -391,11 +402,13 @@
             
             function gameLoop() {
                 try {
-                    updateGame();  // ゲーム更新を追加
+                    updateGame();
                     render();
                     requestAnimationFrame(gameLoop);
                 } catch (error) {
                     console.error('ゲームループエラー:', error);
+                    // エラーが発生してもループを続ける
+                    requestAnimationFrame(gameLoop);
                 }
             }
             
