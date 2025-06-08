@@ -1,0 +1,1084 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Neon Nexus Defense</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: linear-gradient(135deg, #0c0c0c 0%, #1a1a2e 50%, #16213e 100%);
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+            color: #fff;
+            position: fixed;
+        }
+
+        .game-container {
+            position: relative;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+        }
+
+        #gameCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #0a0a0a;
+            cursor: crosshair;
+        }
+
+        .ui-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .top-ui {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 20px;
+            background: rgba(0, 255, 255, 0.1);
+            padding: 10px 20px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.3);
+        }
+
+        .stat {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            color: #00ffff;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+        }
+
+        .bottom-ui {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        .tower-btn, .speed-btn {
+            padding: 12px 16px;
+            background: linear-gradient(45deg, #1e3c72, #2a5298);
+            border: 2px solid #00ffff;
+            border-radius: 15px;
+            color: #00ffff;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            min-width: 80px;
+            text-align: center;
+        }
+
+        .tower-btn:hover, .speed-btn:hover {
+            background: linear-gradient(45deg, #2a5298, #1e3c72);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.6);
+            transform: translateY(-2px);
+        }
+
+        .tower-btn.selected {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a6f);
+            border-color: #ff6b6b;
+            color: #fff;
+        }
+
+        .speed-btn.active {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            border-color: #4ecdc4;
+        }
+
+        .speed-controls {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            gap: 5px;
+            pointer-events: auto;
+        }
+
+        .game-over {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            border: 2px solid #ff6b6b;
+            backdrop-filter: blur(10px);
+        }
+
+        .game-over h2 {
+            color: #ff6b6b;
+            font-size: 32px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px rgba(255, 107, 107, 0.8);
+        }
+
+        .game-over p {
+            color: #00ffff;
+            font-size: 18px;
+            margin: 10px 0;
+        }
+
+        .restart-btn {
+            margin-top: 20px;
+            padding: 15px 30px;
+            background: linear-gradient(45deg, #1e3c72, #2a5298);
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            color: #00ffff;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .restart-btn:hover {
+            background: linear-gradient(45deg, #2a5298, #1e3c72);
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5);
+        }
+
+        @media (max-width: 768px) {
+            .top-ui {
+                flex-direction: column;
+                gap: 5px;
+                padding: 5px 10px;
+            }
+            
+            .stat {
+                font-size: 12px;
+            }
+            
+            .tower-btn, .speed-btn {
+                padding: 10px 12px;
+                font-size: 10px;
+                min-width: 60px;
+            }
+            
+            .speed-controls {
+                top: 10px;
+                right: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <canvas id="gameCanvas"></canvas>
+        
+        <div class="ui-overlay">
+            <div class="top-ui">
+                <div class="stat">💰 <span id="money">100</span></div>
+                <div class="stat">❤️ <span id="lives">20</span></div>
+                <div class="stat">🌊 Wave <span id="wave">1</span></div>
+                <div class="stat">⚡ Score <span id="score">0</span></div>
+                <div class="stat">⏱️ <span id="countdown">Ready</span></div>
+            </div>
+
+            <div class="speed-controls">
+                <button class="speed-btn active" data-speed="1">1x</button>
+                <button class="speed-btn" data-speed="2">2x</button>
+                <button class="speed-btn" data-speed="4">4x</button>
+                <button class="speed-btn" data-speed="6">6x</button>
+            </div>
+            
+            <div class="bottom-ui">
+                <button class="tower-btn" data-tower="laser">
+                    LASER<br>💰50
+                </button>
+                <button class="tower-btn" data-tower="plasma">
+                    PLASMA<br>💰75
+                </button>
+                <button class="tower-btn" data-tower="ice">
+                    ICE<br>💰60
+                </button>
+            </div>
+        </div>
+        
+        <div id="gameOverScreen" class="game-over" style="display: none;">
+            <h2>GAME OVER</h2>
+            <p>Final Score: <span id="finalScore">0</span></p>
+            <p>Wave Reached: <span id="finalWave">1</span></p>
+            <button class="restart-btn" onclick="restartGame()">RESTART</button>
+        </div>
+    </div>
+
+    <script>
+        // DOMロード完了を待つ
+        document.addEventListener('DOMContentLoaded', function() {
+            initGame();
+        });
+
+        // 基本初期化（DOMロード後に実行）
+        let canvas, ctx;
+        
+        function initGame() {
+            console.log('ゲーム初期化開始');
+            canvas = document.getElementById('gameCanvas');
+            ctx = canvas.getContext('2d');
+            
+            if (!canvas || !ctx) {
+                console.error('キャンバス取得失敗');
+                return;
+            }
+            console.log('キャンバス取得成功');
+        
+        // ゲーム変数
+        let money = 100;
+        let lives = 20;
+        let score = 0;
+        let currentWave = 1;
+        let waveCountdown = 60;
+        let gameOver = false;
+        let selectedTower = null;
+        let frameCount = 0;
+        let gameSpeed = 1;
+
+        // ゲームオブジェクト
+        let towers = [];
+        let enemies = [];
+        let projectiles = [];
+        let currentWaveEnemies = [];
+        let enemySpawnIndex = 0;
+
+        // 経路定義
+        let path = [];
+
+            // キャンバスサイズ強制設定
+            initializeCanvas();
+            
+            // イベントリスナー設定
+            setupEventListeners();
+            
+            // ゲーム開始
+            initializeFirstWave();
+            updateUI();
+            startGameLoop();
+        }
+
+        function initializeCanvas() {
+            // 強制的にキャンバスサイズを設定
+            const width = window.innerWidth || 1920;
+            const height = window.innerHeight || 1080;
+            
+            canvas.width = width;
+            canvas.height = height;
+            canvas.style.width = width + 'px';
+            canvas.style.height = height + 'px';
+            
+            console.log('キャンバスサイズ設定:', width, 'x', height);
+            
+            // 経路を画面サイズに合わせて初期化
+            path = [
+                {x: 50, y: height * 0.5},
+                {x: width * 0.2, y: height * 0.5},
+                {x: width * 0.2, y: height * 0.2},
+                {x: width * 0.5, y: height * 0.2},
+                {x: width * 0.5, y: height * 0.8},
+                {x: width * 0.8, y: height * 0.8},
+                {x: width * 0.8, y: height * 0.5},
+                {x: width - 50, y: height * 0.5}
+            ];
+            
+            console.log('経路初期化完了:', path.length, '点');
+            
+            // テスト描画
+            ctx.fillStyle = '#ff0000';
+            ctx.fillRect(10, 10, 50, 50);
+            console.log('テスト描画完了');
+        }
+
+        function setupEventListeners() {
+            console.log('イベントリスナー設定開始');
+            
+            // タワー選択
+            document.querySelectorAll('.tower-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.tower-btn').forEach(b => b.classList.remove('selected'));
+                    btn.classList.add('selected');
+                    selectedTower = btn.dataset.tower;
+                    console.log('タワー選択:', selectedTower);
+                });
+            });
+
+            // 速度制御
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    document.querySelectorAll('.speed-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    gameSpeed = parseInt(btn.dataset.speed);
+                    console.log('速度変更:', gameSpeed);
+                });
+            });
+
+            // キャンバスクリック
+            canvas.addEventListener('click', handleCanvasClick);
+            canvas.addEventListener('touchstart', handleCanvasTouch);
+            
+            // リサイズ
+            window.addEventListener('resize', handleResize);
+            
+            console.log('イベントリスナー設定完了');
+        }
+
+        function handleCanvasClick(e) {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+            console.log('キャンバスクリック:', x, y);
+            placeTower(x, y);
+        }
+
+        function handleCanvasTouch(e) {
+            e.preventDefault();
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            const x = touch.clientX - rect.left;
+            const y = touch.clientY - rect.top;
+            console.log('キャンバスタッチ:', x, y);
+            placeTower(x, y);
+        }
+
+        function handleResize() {
+            console.log('リサイズ検出');
+            initializeCanvas();
+        }
+        // タワータイプ定義
+        const towerTypes = {
+            laser: { cost: 50, damage: 25, range: 120, fireRate: 30, color: '#ff6b6b', projectileSpeed: 8 },
+            plasma: { cost: 75, damage: 40, range: 100, fireRate: 45, color: '#4ecdc4', projectileSpeed: 6 },
+            ice: { cost: 60, damage: 15, range: 110, fireRate: 20, color: '#74b9ff', projectileSpeed: 7, slow: true }
+        };
+
+        function startGameLoop() {
+            console.log('ゲームループ開始');
+            
+            function gameLoop() {
+                try {
+                    updateGame();  // ゲーム更新を追加
+                    render();
+                    requestAnimationFrame(gameLoop);
+                } catch (error) {
+                    console.error('ゲームループエラー:', error);
+                }
+            }
+            
+            gameLoop();
+        }
+
+        function updateGame() {
+            if (gameOver) return;
+
+            frameCount++;
+
+            // 敵のスポーン処理
+            if (currentWaveEnemies.length > 0 && enemySpawnIndex < currentWaveEnemies.length) {
+                const nextEnemy = currentWaveEnemies[enemySpawnIndex];
+                if (frameCount >= nextEnemy.spawn) {
+                    const enemy = spawnEnemy(nextEnemy.type);
+                    enemies.push(enemy);
+                    enemySpawnIndex++;
+                    console.log('敵スポーン:', nextEnemy.type, '残り:', currentWaveEnemies.length - enemySpawnIndex);
+                }
+            }
+
+            // 敵の移動（スローエフェクト対応）
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                const enemy = enemies[i];
+                
+                // スローエフェクトの処理
+                let currentSpeed = enemy.speed;
+                if (enemy.effects.slow) {
+                    currentSpeed *= 0.5;
+                    enemy.effects.slow--;
+                    if (enemy.effects.slow <= 0) {
+                        delete enemy.effects.slow;
+                    }
+                }
+                
+                if (enemy.pathIndex < path.length - 1) {
+                    const target = path[enemy.pathIndex + 1];
+                    const dx = target.x - enemy.x;
+                    const dy = target.y - enemy.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+                    
+                    if (distance < 5) {
+                        enemy.pathIndex++;
+                        if (enemy.pathIndex < path.length) {
+                            enemy.x = path[enemy.pathIndex].x;
+                            enemy.y = path[enemy.pathIndex].y;
+                        }
+                    } else {
+                        const moveX = (dx / distance) * currentSpeed;
+                        const moveY = (dy / distance) * currentSpeed;
+                        enemy.x += moveX;
+                        enemy.y += moveY;
+                    }
+                } else {
+                    // ゴール到達
+                    enemies.splice(i, 1);
+                    lives--;
+                    console.log('敵がゴール到達、残りライフ:', lives);
+                    if (lives <= 0) {
+                        gameOver = true;
+                        console.log('ゲームオーバー');
+                    }
+                }
+            }
+
+            // 次のWave準備
+            if (currentWaveEnemies.length > 0 && enemySpawnIndex >= currentWaveEnemies.length && enemies.length === 0) {
+                console.log('Wave完了、次のWave準備');
+                currentWave++;
+                waveCountdown = 180;
+                frameCount = 0;
+                
+                // 簡単な次Wave設定
+                currentWaveEnemies = [];
+                const enemyCount = Math.min(5 + currentWave, 15);
+                for (let i = 0; i < enemyCount; i++) {
+                    const type = Math.random() < 0.5 ? 'normal' : 'fast';
+                    currentWaveEnemies.push({
+                        spawn: i * 45,
+                        type: type
+                    });
+                }
+                enemySpawnIndex = 0;
+            }
+
+            updateUI();
+        }
+
+        function render() {
+            // 背景クリア
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 経路描画（まず確実に表示）
+            if (path && path.length > 0) {
+                ctx.strokeStyle = '#333';
+                ctx.lineWidth = 30;
+                ctx.lineCap = 'round';
+                ctx.lineJoin = 'round';
+                ctx.beginPath();
+                ctx.moveTo(path[0].x, path[0].y);
+                for (let i = 1; i < path.length; i++) {
+                    ctx.lineTo(path[i].x, path[i].y);
+                }
+                ctx.stroke();
+
+                // 矢印描画
+                ctx.fillStyle = '#555';
+                for (let i = 0; i < path.length - 1; i++) {
+                    const start = path[i];
+                    const end = path[i + 1];
+                    const midX = (start.x + end.x) / 2;
+                    const midY = (start.y + end.y) / 2;
+                    const angle = Math.atan2(end.y - start.y, end.x - start.x);
+                    
+                    ctx.save();
+                    ctx.translate(midX, midY);
+                    ctx.rotate(angle);
+                    ctx.beginPath();
+                    ctx.moveTo(-8, -4);
+                    ctx.lineTo(8, 0);
+                    ctx.lineTo(-8, 4);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.restore();
+                }
+            } else {
+                console.warn('経路が未定義');
+            }
+
+            // 敵描画
+            enemies.forEach(enemy => {
+                ctx.save();
+                if (enemy.stealth) ctx.globalAlpha = enemy.alpha || 0.3;
+                
+                ctx.fillStyle = enemy.color;
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // HPバー
+                const barWidth = enemy.size * 2;
+                const barHeight = 4;
+                const hpPercent = enemy.hp / enemy.maxHp;
+                
+                ctx.fillStyle = '#333';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 10, barWidth, barHeight);
+                ctx.fillStyle = hpPercent > 0.5 ? '#2ecc71' : hpPercent > 0.25 ? '#f39c12' : '#e74c3c';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 10, barWidth * hpPercent, barHeight);
+                
+                ctx.restore();
+            });
+
+            // 弾丸描画
+            projectiles.forEach(proj => {
+                ctx.fillStyle = proj.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = proj.color;
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            if (gameOver) {
+                document.getElementById('gameOverScreen').style.display = 'block';
+                document.getElementById('finalScore').textContent = score;
+                document.getElementById('finalWave').textContent = currentWave;
+            }
+        }
+
+        // 敵タイプ定義
+        const enemyTypes = {
+            normal: { hp: 100, speed: 1.5, color: '#4ecdc4', reward: 10, size: 15 },
+            fast: { hp: 50, speed: 3, color: '#ff6b6b', reward: 15, size: 12 },
+            armor: { hp: 200, speed: 1, color: '#95a5a6', reward: 25, size: 18, armor: 0.5, laserWeak: true },
+            stealth: { hp: 80, speed: 2, color: '#9b59b6', reward: 20, size: 13, stealth: true, alpha: 0.3 }
+        };
+
+        function spawnEnemy(type, waveBonus = 0) {
+            const enemyData = enemyTypes[type];
+            const enemy = {
+                x: path[0].x,
+                y: path[0].y,
+                pathIndex: 0,
+                hp: enemyData.hp + waveBonus * 20,
+                maxHp: enemyData.hp + waveBonus * 20,
+                speed: enemyData.speed,
+                color: enemyData.color,
+                reward: enemyData.reward,
+                size: enemyData.size,
+                type: type,
+                effects: {},
+                ...enemyData
+            };
+            console.log('敵生成:', type, 'at', enemy.x, enemy.y);
+            return enemy;
+        }
+
+        function initializeFirstWave() {
+            console.log('初期Wave設定');
+            currentWaveEnemies = [
+                { spawn: 60, type: 'normal' },
+                { spawn: 120, type: 'normal' },
+                { spawn: 180, type: 'fast' },
+                { spawn: 240, type: 'normal' },
+                { spawn: 300, type: 'fast' }
+            ];
+            enemySpawnIndex = 0;
+            waveCountdown = 60;
+            frameCount = 0;
+            console.log('初期Wave準備完了:', currentWaveEnemies.length, '体');
+        }
+
+        function updateGame() {
+            if (gameOver) return;
+
+            for (let speedStep = 0; speedStep < gameSpeed; speedStep++) {
+                frameCount++;
+
+                // ウェーブ管理
+                if (currentWaveEnemies.length === 0 && enemies.length === 0) {
+                    if (waveCountdown <= 0) {
+                        currentWave++;
+                        waveCountdown = 180;
+                        
+                        const enemyCount = Math.min(5 + currentWave * 2, 25);
+                        currentWaveEnemies = [];
+                        
+                        for (let i = 0; i < enemyCount; i++) {
+                            let enemyType = 'normal';
+                            const rand = Math.random();
+                            
+                            if (currentWave >= 3) {
+                                if (currentWave % 10 === 0) enemyType = 'boss';
+                                else if (rand < 0.1) enemyType = 'stealth';
+                                else if (rand < 0.2) enemyType = 'armor';
+                                else if (rand < 0.3) enemyType = 'fast';
+                                else if (rand < 0.4) enemyType = 'healer';
+                                else if (rand < 0.5) enemyType = 'splitter';
+                            } else if (rand < 0.3) {
+                                enemyType = 'fast';
+                            }
+                            
+                            currentWaveEnemies.push({
+                                spawn: i * 30,
+                                type: enemyType
+                            });
+                        }
+                        enemySpawnIndex = 0;
+                    } else {
+                        waveCountdown--;
+                    }
+                }
+                
+                // 敵のスポーン
+                if (currentWaveEnemies.length > 0 && enemySpawnIndex < currentWaveEnemies.length) {
+                    const nextEnemy = currentWaveEnemies[enemySpawnIndex];
+                    if (frameCount >= nextEnemy.spawn) {
+                        const enemy = spawnEnemy(nextEnemy.type, currentWave - 1);
+                        enemies.push(enemy);
+                        enemySpawnIndex++;
+                    }
+                }
+
+                // 敵の移動
+                for (let i = enemies.length - 1; i >= 0; i--) {
+                    const enemy = enemies[i];
+                    
+                    // 特殊能力処理
+                    if (enemy.healer && frameCount % 60 === 0) {
+                        enemies.forEach(other => {
+                            if (other !== enemy) {
+                                const dist = Math.sqrt((enemy.x - other.x) ** 2 + (enemy.y - other.y) ** 2);
+                                if (dist < 80) {
+                                    other.hp = Math.min(other.hp + 20, other.maxHp);
+                                }
+                            }
+                        });
+                    }
+
+                    if (enemy.teleport && frameCount - enemy.lastTeleport > 300 && Math.random() < 0.01) {
+                        const newIndex = Math.min(enemy.pathIndex + 2, path.length - 1);
+                        enemy.pathIndex = newIndex;
+                        if (newIndex < path.length) {
+                            enemy.x = path[newIndex].x;
+                            enemy.y = path[newIndex].y;
+                        }
+                        enemy.lastTeleport = frameCount;
+                    }
+
+                    if (enemy.rush && !enemy.rushActivated && enemy.hp < enemy.maxHp * 0.5) {
+                        enemy.speed *= 2;
+                        enemy.rushActivated = true;
+                        enemy.color = '#ff4757';
+                    }
+
+                    // 移動処理
+                    let currentSpeed = enemy.speed;
+                    if (enemy.effects.slow) {
+                        currentSpeed *= 0.5;
+                        enemy.effects.slow--;
+                        if (enemy.effects.slow <= 0) delete enemy.effects.slow;
+                    }
+                    
+                    if (enemy.pathIndex < path.length - 1) {
+                        const target = path[enemy.pathIndex + 1];
+                        const dx = target.x - enemy.x;
+                        const dy = target.y - enemy.y;
+                        const distance = Math.sqrt(dx * dx + dy * dy);
+                        
+                        if (distance < 5) {
+                            enemy.pathIndex++;
+                            if (enemy.pathIndex < path.length) {
+                                const nextTarget = path[enemy.pathIndex];
+                                enemy.x = nextTarget.x;
+                                enemy.y = nextTarget.y;
+                            }
+                        } else {
+                            const moveX = (dx / distance) * currentSpeed;
+                            const moveY = (dy / distance) * currentSpeed;
+                            enemy.x += moveX;
+                            enemy.y += moveY;
+                        }
+                    } else {
+                        enemies.splice(i, 1);
+                        lives--;
+                        if (lives <= 0) gameOver = true;
+                    }
+                }
+
+                // タワーの攻撃
+                towers.forEach(tower => {
+                    if (frameCount - tower.lastFire >= tower.fireRate) {
+                        let target = null;
+                        let closestDist = tower.range;
+
+                        enemies.forEach(enemy => {
+                            if (enemy.stealth && tower.type !== 'laser') return;
+                            
+                            const dist = Math.sqrt((tower.x - enemy.x) ** 2 + (tower.y - enemy.y) ** 2);
+                            if (dist <= closestDist) {
+                                target = enemy;
+                                closestDist = dist;
+                            }
+                        });
+
+                        if (target) {
+                            projectiles.push({
+                                x: tower.x,
+                                y: tower.y,
+                                targetX: target.x,
+                                targetY: target.y,
+                                target: target,
+                                damage: tower.damage,
+                                speed: tower.projectileSpeed,
+                                color: tower.color,
+                                type: tower.type,
+                                slow: tower.slow
+                            });
+                            tower.lastFire = frameCount;
+                        }
+                    }
+                });
+
+                // 弾丸の移動と衝突
+                for (let i = projectiles.length - 1; i >= 0; i--) {
+                    const proj = projectiles[i];
+                    const dx = proj.targetX - proj.x;
+                    const dy = proj.targetY - proj.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+
+                    if (dist < proj.speed || dist < 10) {
+                        if (proj.target && enemies.includes(proj.target)) {
+                            let damage = proj.damage;
+                            
+                            if (proj.target.armor && proj.type !== 'laser') damage *= proj.target.armor;
+                            if (proj.target.laserWeak && proj.type === 'laser') damage *= 2;
+
+                            if (proj.target.shield) {
+                                const enemyAngle = Math.atan2(
+                                    path[Math.min(proj.target.pathIndex + 1, path.length - 1)].y - proj.target.y,
+                                    path[Math.min(proj.target.pathIndex + 1, path.length - 1)].x - proj.target.x
+                                );
+                                const attackAngle = Math.atan2(proj.y - proj.target.y, proj.x - proj.target.x);
+                                const angleDiff = Math.abs(enemyAngle - attackAngle);
+                                
+                                if (angleDiff < Math.PI / 2 || angleDiff > 3 * Math.PI / 2) damage = 0;
+                            }
+
+                            if (proj.target.barrier > 0) {
+                                proj.target.barrier -= damage;
+                                if (proj.target.barrier <= 0) proj.target.barrier = 0;
+                                damage = 0;
+                            } else {
+                                proj.target.hp -= damage;
+                            }
+
+                            if (proj.slow) proj.target.effects.slow = 120;
+
+                            if (proj.target.hp <= 0) {
+                                money += proj.target.reward;
+                                score += proj.target.reward * 10;
+                                
+                                if (proj.target.splitter) {
+                                    for (let j = 0; j < 2; j++) {
+                                        const miniEnemy = spawnEnemy('normal');
+                                        miniEnemy.hp = 30;
+                                        miniEnemy.maxHp = 30;
+                                        miniEnemy.size = 8;
+                                        miniEnemy.x = proj.target.x + (Math.random() - 0.5) * 20;
+                                        miniEnemy.y = proj.target.y + (Math.random() - 0.5) * 20;
+                                        miniEnemy.pathIndex = proj.target.pathIndex;
+                                        miniEnemy.reward = 5;
+                                        enemies.push(miniEnemy);
+                                    }
+                                }
+                                
+                                const enemyIndex = enemies.indexOf(proj.target);
+                                if (enemyIndex > -1) enemies.splice(enemyIndex, 1);
+                            }
+                        }
+                        projectiles.splice(i, 1);
+                    } else {
+                        proj.x += (dx / dist) * proj.speed;
+                        proj.y += (dy / dist) * proj.speed;
+                    }
+                }
+            }
+            updateUI();
+        }
+
+        function render() {
+            // 背景クリア
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 経路描画
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 30;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(path[0].x, path[0].y);
+            for (let i = 1; i < path.length; i++) {
+                ctx.lineTo(path[i].x, path[i].y);
+            }
+            ctx.stroke();
+
+            // 矢印描画
+            ctx.fillStyle = '#555';
+            for (let i = 0; i < path.length - 1; i++) {
+                const start = path[i];
+                const end = path[i + 1];
+                const midX = (start.x + end.x) / 2;
+                const midY = (start.y + end.y) / 2;
+                const angle = Math.atan2(end.y - start.y, end.x - start.x);
+                
+                ctx.save();
+                ctx.translate(midX, midY);
+                ctx.rotate(angle);
+                ctx.beginPath();
+                ctx.moveTo(-8, -4);
+                ctx.lineTo(8, 0);
+                ctx.lineTo(-8, 4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // タワー描画
+            towers.forEach(tower => {
+                ctx.fillStyle = tower.color;
+                ctx.beginPath();
+                ctx.arc(tower.x, tower.y, 20, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+            });
+
+            // 敵描画
+            enemies.forEach(enemy => {
+                ctx.save();
+                if (enemy.stealth) ctx.globalAlpha = enemy.alpha || 0.3;
+                
+                ctx.fillStyle = enemy.color;
+                ctx.beginPath();
+                ctx.arc(enemy.x, enemy.y, enemy.size, 0, Math.PI * 2);
+                ctx.fill();
+                
+                if (enemy.boss) {
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 3;
+                    ctx.stroke();
+                    ctx.fillStyle = '#ff0000';
+                    ctx.beginPath();
+                    ctx.arc(enemy.x - 8, enemy.y - 5, 3, 0, Math.PI * 2);
+                    ctx.arc(enemy.x + 8, enemy.y - 5, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+                
+                if (enemy.armor) {
+                    ctx.strokeStyle = '#ecf0f1';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+                }
+                
+                if (enemy.shield) {
+                    const shieldAngle = Math.atan2(
+                        path[Math.min(enemy.pathIndex + 1, path.length - 1)].y - enemy.y,
+                        path[Math.min(enemy.pathIndex + 1, path.length - 1)].x - enemy.x
+                    );
+                    ctx.strokeStyle = '#f1c40f';
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, enemy.size + 5, shieldAngle - Math.PI/3, shieldAngle + Math.PI/3);
+                    ctx.stroke();
+                }
+                
+                if (enemy.healer) {
+                    ctx.strokeStyle = '#2ecc71';
+                    ctx.lineWidth = 1;
+                    ctx.globalAlpha = 0.5;
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, 40, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+                
+                if (enemy.barrier > 0) {
+                    ctx.strokeStyle = '#3498db';
+                    ctx.lineWidth = 2;
+                    ctx.globalAlpha = 0.7;
+                    ctx.beginPath();
+                    ctx.arc(enemy.x, enemy.y, enemy.size + 8, 0, Math.PI * 2);
+                    ctx.stroke();
+                    ctx.globalAlpha = 1;
+                }
+                
+                // HPバー
+                const barWidth = enemy.size * 2;
+                const barHeight = 4;
+                const hpPercent = enemy.hp / enemy.maxHp;
+                
+                ctx.fillStyle = '#333';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 10, barWidth, barHeight);
+                ctx.fillStyle = hpPercent > 0.5 ? '#2ecc71' : hpPercent > 0.25 ? '#f39c12' : '#e74c3c';
+                ctx.fillRect(enemy.x - barWidth/2, enemy.y - enemy.size - 10, barWidth * hpPercent, barHeight);
+                
+                ctx.restore();
+            });
+
+            // 弾丸描画
+            projectiles.forEach(proj => {
+                ctx.fillStyle = proj.color;
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = proj.color;
+                ctx.beginPath();
+                ctx.arc(proj.x, proj.y, 4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            if (gameOver) {
+                document.getElementById('gameOverScreen').style.display = 'block';
+                document.getElementById('finalScore').textContent = score;
+                document.getElementById('finalWave').textContent = currentWave;
+            }
+        }
+
+        function placeTower(x, y) {
+            if (!selectedTower || gameOver) {
+                console.log('タワー配置失敗: selectedTower=', selectedTower, 'gameOver=', gameOver);
+                return;
+            }
+            
+            const towerType = towerTypes[selectedTower];
+            if (money < towerType.cost) {
+                console.log('タワー配置失敗: 資金不足', money, '<', towerType.cost);
+                return;
+            }
+
+            if (isValidPlacement(x, y)) {
+                towers.push({
+                    x: x,
+                    y: y,
+                    type: selectedTower,
+                    lastFire: 0,
+                    ...towerType
+                });
+                money -= towerType.cost;
+                console.log('タワー配置成功:', selectedTower, 'at', x, y, '残金:', money);
+                updateUI();
+            } else {
+                console.log('タワー配置失敗: 無効な位置');
+            }
+        }
+
+        function isValidPlacement(x, y) {
+            const minDistance = 40;
+            
+            // 経路との距離チェック
+            for (let i = 0; i < path.length - 1; i++) {
+                const dist = distanceToLineSegment(x, y, path[i], path[i + 1]);
+                if (dist < minDistance) return false;
+            }
+            
+            // 他のタワーとの距離チェック
+            for (const tower of towers) {
+                const dist = Math.sqrt((x - tower.x) ** 2 + (y - tower.y) ** 2);
+                if (dist < minDistance) return false;
+            }
+            
+            return true;
+        }
+
+        function distanceToLineSegment(px, py, line1, line2) {
+            const A = px - line1.x;
+            const B = py - line1.y;
+            const C = line2.x - line1.x;
+            const D = line2.y - line1.y;
+
+            const dot = A * C + B * D;
+            const lenSq = C * C + D * D;
+            let param = -1;
+            if (lenSq !== 0) param = dot / lenSq;
+
+            let xx, yy;
+            if (param < 0) {
+                xx = line1.x;
+                yy = line1.y;
+            } else if (param > 1) {
+                xx = line2.x;
+                yy = line2.y;
+            } else {
+                xx = line1.x + param * C;
+                yy = line1.y + param * D;
+            }
+
+            const dx = px - xx;
+            const dy = py - yy;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function updateUI() {
+            document.getElementById('money').textContent = money;
+            document.getElementById('lives').textContent = lives;
+            document.getElementById('wave').textContent = currentWave;
+            document.getElementById('score').textContent = score;
+            
+            const countdownSeconds = Math.ceil(waveCountdown / 60);
+            document.getElementById('countdown').textContent = 
+                waveCountdown > 0 ? `Next: ${countdownSeconds}s` : 'Fighting!';
+        }
+
+        function restartGame() {
+            console.log('ゲームリスタート');
+            money = 100;
+            lives = 20;
+            score = 0;
+            currentWave = 1;
+            waveCountdown = 60;
+            gameOver = false;
+            selectedTower = null;
+            frameCount = 0;
+            gameSpeed = 1;
+
+            towers = [];
+            enemies = [];
+            projectiles = [];
+            currentWaveEnemies = [];
+            enemySpawnIndex = 0;
+
+            document.getElementById('gameOverScreen').style.display = 'none';
+            document.querySelectorAll('.tower-btn').forEach(btn => btn.classList.remove('selected'));
+            document.querySelectorAll('.speed-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelector('.speed-btn[data-speed="1"]').classList.add('active');
+
+            initializeFirstWave();
+            updateUI();
+        }
+    </script>
+</body>
+</html>
